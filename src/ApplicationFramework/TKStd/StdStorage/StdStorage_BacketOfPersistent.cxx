@@ -16,7 +16,9 @@
 
 StdStorage_Bucket::~StdStorage_Bucket()
 {
-  Standard::Free(mySpace);
+  if (mySpace)
+    Standard::Free(mySpace);
+
   mySpace     = 0L;
   mySpaceSize = 0;
   Clear();
@@ -33,6 +35,12 @@ void StdStorage_Bucket::Clear()
 
 void StdStorage_Bucket::Append(StdObjMgt_Persistent* sp)
 {
+  if (!sp)
+  {
+    return;
+  }
+  Standard_DomainError_Raise_if(myCurrentSpace >= mySpaceSize, "Error: Bucket is full.");
+
   ++myCurrentSpace;
   mySpace[myCurrentSpace] = sp;
 }
@@ -41,6 +49,9 @@ void StdStorage_Bucket::Append(StdObjMgt_Persistent* sp)
 
 StdObjMgt_Persistent* StdStorage_Bucket::Value(const Standard_Integer theIndex) const
 {
+  Standard_OutOfRange_Raise_if(theIndex < 0 || theIndex > myCurrentSpace,
+                               "Error: theIndex is out of range.");
+
   return mySpace[theIndex];
 }
 
@@ -90,8 +101,10 @@ StdStorage_BucketOfPersistent::~StdStorage_BucketOfPersistent()
 StdObjMgt_Persistent* StdStorage_BucketOfPersistent::Value(const Standard_Integer theIndex)
 {
   Standard_Integer theInd, theCurrentBucketNumber, tecurrentind = theIndex - 1;
+  Standard_OutOfMemory_Raise_if(tecurrentind > myLength, "Error: theIndex is out of range.");
   theCurrentBucketNumber = tecurrentind / myBucketSize;
-  theInd                 = tecurrentind - (myBucketSize * theCurrentBucketNumber);
+  // theInd                 = tecurrentind - (myBucketSize * theCurrentBucketNumber);
+  theInd = tecurrentind % myBucketSize;
 
   return myBuckets[theCurrentBucketNumber]->mySpace[theInd];
 }
@@ -100,6 +113,11 @@ StdObjMgt_Persistent* StdStorage_BucketOfPersistent::Value(const Standard_Intege
 
 void StdStorage_BucketOfPersistent::Append(const Handle(StdObjMgt_Persistent)& sp)
 {
+  if (!sp)
+  {
+    return;
+  }
+
   myCurrentBucket->myCurrentSpace++;
 
   if (myCurrentBucket->myCurrentSpace != myBucketSize)
